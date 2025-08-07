@@ -1,13 +1,16 @@
 import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcrypt';
 
+export type UserRole = 'Admin' | 'Manager' | 'Agent' | 'Viewer';
 export interface IUser extends mongoose.Document {
   email: string;
   password: string;
-  role: 'Admin' | 'Manager' | 'Agent' | 'Viewer';
+  role: UserRole;
   failedAttempts: number;
   lockedUntil: number | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const userSchema = new Schema<IUser>({

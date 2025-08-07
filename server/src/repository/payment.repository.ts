@@ -4,7 +4,10 @@ import { Payment } from '../models/payment.model';
 import { IPaymentRepository } from '../core/interface/repository/Ipayment.repository';
 import { HttpError } from '../utils/http.error';
 import { STATUS_CODES } from '../utils/http.statuscodes';
+import { injectable } from 'inversify';
+import { MESSAGES } from '../utils/Response.messages';
 
+@injectable()
 export class PaymentRepository extends BaseRepository<IPayment> implements IPaymentRepository {
   constructor() {
     super(Payment);
@@ -25,7 +28,7 @@ export class PaymentRepository extends BaseRepository<IPayment> implements IPaym
 
   async updatePaymentStatus(paymentId: string, status: paymentStatus): Promise<IPayment> {
     const payment = await Payment.findByIdAndUpdate(paymentId, { status }, { new: true });
-    if (!payment) throw new HttpError(STATUS_CODES.BAD_REQUEST,'Payment not found');
+    if (!payment) throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.PAYMENT_NOT_FOUND);
     return payment;
   }
 }

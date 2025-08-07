@@ -1,4 +1,4 @@
-import { Model, Document } from 'mongoose';
+import { Model, Document, FilterQuery } from 'mongoose';
 import { IBaseRepository } from '../core/interface/repository/Ibase.repository';
 
 export class BaseRepository<T extends Document> implements IBaseRepository<T> {
@@ -20,4 +20,9 @@ export class BaseRepository<T extends Document> implements IBaseRepository<T> {
   async deleteById(id: string): Promise<void> {
     await this.model.findByIdAndDelete(id);
   }
+  
+  async findOne(filter: FilterQuery<T>): Promise<T | null> {
+    return this.model.findOne(filter);
+  }
+
 }

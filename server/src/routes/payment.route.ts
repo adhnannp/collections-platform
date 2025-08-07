@@ -1,13 +1,23 @@
 import express from 'express';
-import { PaymentController } from '../controller/payment.controller';
-import { authMiddleware, roleMiddleware } from '../middleware/auth.middleware';
+import { roleMiddleware } from '../middleware/auth.middleware';
+import asyncHandler from 'express-async-handler';
+import { IPaymentController } from '../core/interface/controller/Ipayment.controller';
+import { TYPES } from '../di/types';
+import { container } from '../di/container';
+import { IAuthMiddleware } from '../core/interface/middleware/Iauth.middleware';
 
 const router = express.Router();
 
-router.use(authMiddleware);
+const paymentController = container.get<IPaymentController>(TYPES.PaymentController);
+const AuthMiddleware = container.get<IAuthMiddleware>(TYPES.AuthMiddleware);
+const auth = AuthMiddleware.handle.bind(AuthMiddleware);
 
-router.post('/:id/payments', roleMiddleware(['Admin', 'Manager']), PaymentController.recordPayment);
-router.get('/:id/payments', roleMiddleware(['Admin', 'Manager', 'Agent', 'Viewer']), PaymentController.getPayments);
-router.put('/payments/:paymentId', roleMiddleware(['Admin', 'Manager']), PaymentController.updatePaymentStatus);
+router.use(auth);
+
+router.put(
+  '/:paymentId',
+  roleMiddleware(['Admin', 'Manager']),
+  asyncHandler(paymentController.updatePaymentStatus.bind(paymentController))
+);
 
 export default router;

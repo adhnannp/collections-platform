@@ -1,33 +1,48 @@
 import { Request, Response } from 'express';
-import { PaymentService } from '../service/payment.service';
+import { inject, injectable } from 'inversify';
+import { TYPES } from '../di/types';
+import { IPaymentService } from '../core/interface/service/Ipayment.service';
+import { STATUS_CODES } from '../utils/http.statuscodes';
+import { querySchema, recordPaymentSchema } from '../validation/payment.schema';
+import { treeifyError } from 'zod';
+import { IPaymentController } from '../core/interface/controller/Ipayment.controller';
 
-export class PaymentController {
-  static async recordPayment(req: Request, res: Response) {
-    try {
-      const io = req.app.get('io');
-      const payment = await PaymentService.recordPayment(req.params.id, req.body, io);
-      res.status(201).json(payment);
-    } catch (error) {
-      res.status(400).json({ error: (error as Error).message });
+@injectable()
+export class PaymentController implements IPaymentController{
+  constructor(
+    @inject(TYPES.PaymentService) private _paymentServ: IPaymentService
+  ) {}
+
+  async recordPayment(req: Request, res: Response): Promise<void> {
+    const parsed = recordPaymentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ errors: treeifyError(parsed.error) });
+      return;
     }
+    const payment = await this._paymentServ.recordPayment(req.params.id, parsed.data);
+    res.status(STATUS_CODES.CREATED).json(payment);
   }
 
-  static async getPayments(req: Request, res: Response) {
-    try {
-      const { page = 1, limit = 10 } = req.query;
-      const payments = await PaymentService.getPayments(req.params.id, Number(page), Number(limit));
-      res.json(payments);
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
+  async getPayments(req: Request, res: Response): Promise<void> {
+    const parsed = querySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ errors: treeifyError(parsed.error) });
+      return;
     }
+    const { page, limit } = parsed.data;
+    const payments = await this._paymentServ.getPayments(req.params.id, page, limit);
+    res.status(STATUS_CODES.OK).json(payments);
   }
 
-  static async updatePaymentStatus(req: Request, res: Response) {
-    try {
-      const payment = await PaymentService.updatePaymentStatus(req.params.paymentId, req.body.status);
-      res.json(payment);
-    } catch (error) {
-      res.status(400).json({ error: (error as Error).message });
+  async updatePaymentStatus(req: Request, res: Response): Promise<void> {
+    const statusSchema = recordPaymentSchema.shape.status;
+    const parsed = statusSchema.safeParse(req.body.status);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ errors: treeifyError(parsed.error) });
+      return;
     }
+    const payment = await this._paymentServ.updatePaymentStatus(req.params.paymentId, parsed.data);
+    res.status(STATUS_CODES.OK).json(payment);
   }
+
 }

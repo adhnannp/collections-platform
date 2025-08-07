@@ -1,24 +1,36 @@
 import { Request, Response } from 'express';
-import { AuthService } from '../service/auth.service';
+import { registerSchema, loginSchema } from '../validation/auth.schema';
+import { treeifyError } from 'zod';
+import { IAuthController } from '../core/interface/controller/Iauth.controller';
+import { TYPES } from '../di/types';
+import { IAuthService } from '../core/interface/service/Iauth.service';
+import { inject, injectable } from 'inversify';
+import { STATUS_CODES } from '../utils/http.statuscodes';
 
-export class AuthController {
-  static async register(req: Request, res: Response) {
-    try {
-      const { email, password, role } = req.body;
-      const user = await AuthService.register(email, password, role);
-      res.status(201).json({ id: user._id, email: user.email, role: user.role });
-    } catch (error) {
-      res.status(400).json({ error: (error as Error).message });
+@injectable()
+export class AuthController implements IAuthController{
+  constructor(@inject(TYPES.AuthService) private _authServ:IAuthService)
+  {}
+
+  async register(req: Request, res: Response):Promise<void> {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ errors: treeifyError(parsed.error) });
+      return;
     }
+    const {email,password,role} = parsed.data
+    const user = await this._authServ.register(email, password, role);
+    res.status(STATUS_CODES.CREATED).json(user);
   }
 
-  static async login(req: Request, res: Response) {
-    try {
-      const { email, password } = req.body;
-      const token = await AuthService.login(email, password);
-      res.json({ token });
-    } catch (error) {
-      res.status(401).json({ error: (error as Error).message });
+  async login(req: Request, res: Response) : Promise<void> {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ errors: treeifyError(parsed.error) });
+      return;
     }
+    const {email,password} = parsed.data
+    const token = await this._authServ.login(email,password);
+    res.status(STATUS_CODES.OK).json({ token });
   }
 }
