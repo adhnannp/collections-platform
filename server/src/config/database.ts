@@ -5,7 +5,7 @@ import logger from '../utils/logger';
 export const connectDB = async (): Promise<void> => {
   try {
     await mongoose.connect(process.env.MONGODB_URI!,{
-      maxPoolSize: 100,
+      maxPoolSize: 500,
     });
     logger.info('MongoDB connected');
   } catch (error) {

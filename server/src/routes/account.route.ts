@@ -17,7 +17,7 @@ const router = express.Router();
 
 router.use(auth);
 
-router.get('/', roleMiddleware(['Admin', 'Manager', 'Agent']), expressAsyncHandler(accountController.listAccounts.bind(accountController)));
+router.get('/', roleMiddleware(['Admin', 'Manager', 'Agent','Viewer']), expressAsyncHandler(accountController.listAccounts.bind(accountController)));
 router.post('/', roleMiddleware(['Admin', 'Manager']), expressAsyncHandler(accountController.createAccount.bind(accountController)));
 router.get('/:id', roleMiddleware(['Admin', 'Manager', 'Agent', 'Viewer']), expressAsyncHandler(accountController.getAccount.bind(accountController)));
 router.put('/:id', roleMiddleware(['Admin', 'Manager']), expressAsyncHandler(accountController.updateAccount.bind(accountController)));

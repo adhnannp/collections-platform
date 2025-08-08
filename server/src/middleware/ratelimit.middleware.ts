@@ -3,7 +3,7 @@ import { Request } from 'express';
 
 export const rateLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 1000,
   keyGenerator: (req: Request): string => {
     return req.user?._id?.toString() ?? ipKeyGenerator(req as any);
   },

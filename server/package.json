@@ -7,8 +7,8 @@
     "build": "tsc",
     "dev": "nodemon src/server.ts",
     "test": "jest",
-    "seed": "ts-node src/scripts/seed.ts",
-    "load-test": "ts-node src/scripts/loadTest.ts",
+    "seed": "npx ts-node src/script/seed.ts",
+    "load-test": "ts-node src/script/loadTest.js",
     "profile": "clinic doctor -- ts-node src/server.js"
   },
   "keywords": [],

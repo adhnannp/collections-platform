@@ -2,18 +2,27 @@ config:
   target: 'http://localhost:3000'
   phases:
     - duration: 60
-      arrivalRate: 1000
-      rampTo: 10000
-  processor: './loadTest.js'
+      arrivalRate: 100
+      rampTo: 1000
+  processor: './script/loadTest.js'
+
 scenarios:
-  - flow:
+  - name: Register + Login + Get Accounts
+    beforeScenario: generateRandomData
+    flow:
+      - post:
+          url: '/api/auth/register'
+          json:
+            email: '{{ email }}'
+            password: '{{ password }}'
+            role: 'Viewer'
       - post:
           url: '/api/auth/login'
           json:
-            email: 'test@example.com'
-            password: 'password123'
+            email: '{{ email }}'
+            password: '{{ password }}'
           capture:
-            json: '$.token'
+            json: '$.accessToken'
             as: 'token'
       - get:
           url: '/api/accounts'
