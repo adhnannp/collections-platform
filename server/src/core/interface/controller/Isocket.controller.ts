@@ -1,5 +1,6 @@
-import { Server } from 'socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 
-export interface ISocketHandler {
-  initialize(io: Server): void;
+export default interface ISocketHandler {
+  initializeSocket(io: SocketIOServer): void;
+  emitNotification(userId: string | null, notification: any, toAdmins: boolean): Promise<void>
 }

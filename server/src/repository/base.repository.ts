@@ -13,6 +13,10 @@ export class BaseRepository<T extends Document> implements IBaseRepository<T> {
     return this.model.findById(id);
   }
 
+  async findAll(filter: FilterQuery<T>): Promise<T[] | null> {
+    return this.model.find(filter);
+  }
+
   async updateById(id: string, update: Partial<T>): Promise<T | null> {
     return this.model.findByIdAndUpdate(id, update, { new: true });
   }
