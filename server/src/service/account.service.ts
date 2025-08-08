@@ -12,6 +12,7 @@ import { STATUS_CODES } from '../utils/http.statuscodes';
 import { MESSAGES } from '../utils/Response.messages';
 import { toAccountResDto } from '../core/dto/account.dto';
 import { AccountResDto } from '../core/dto/account.dto';
+import ISocketHandler from '../core/interface/controller/Isocket.controller';
 
 
 @injectable()
@@ -24,7 +25,8 @@ export class AccountService implements IAccountService {
   private REDIS_PAYMENTS = 'payments'
 
   constructor(
-    @inject(TYPES.AccountRepository) private _accountRepo: IAccountRepository
+    @inject(TYPES.AccountRepository) private _accountRepo: IAccountRepository,
+    @inject(TYPES.SocketController) private _socketHandle: ISocketHandler
   ) {}
 
   async listAccounts({ page, limit, sort, filters, role, userId }: ListReqDto) :Promise<AccountResDto[]>  {
@@ -47,6 +49,12 @@ export class AccountService implements IAccountService {
   async createAccount(data:Partial<IAccount>,userId:string ):Promise<AccountResDto> {
     const id = new Types.ObjectId(userId)
     const account = await this._accountRepo.create({ ...data, userId:id });
+    const notification = {
+      accountName: account.name,
+      message: `New Account created`,
+      timestamp: new Date(),
+    };
+    this._socketHandle.emitNotification(account.userId.toString(), notification, true);
     return toAccountResDto(account);
   }
 

@@ -1,41 +1,68 @@
-import { injectable, inject } from 'inversify';
-import { Server, Socket } from 'socket.io';
-import { ISocketHandler } from '../core/interface/controller/Isocket.controller';
-import { IAuthService } from '../core/interface/service/Iauth.service';
-import { TYPES } from '../di/types';
-import { MESSAGES } from '../utils/Response.messages';
+import { inject, injectable } from 'inversify';
+import { Server as SocketIOServer, Socket } from 'socket.io';
 import logger from '../utils/logger';
+import ISocketHandler from '../core/interface/controller/Isocket.controller';
+import { TYPES } from '../di/types';
+import { IUserRepository } from '../core/interface/repository/Iuser.repository';
 
 @injectable()
-export class SocketHandler implements ISocketHandler {
+export class SocketHandler implements ISocketHandler{
+  private io: SocketIOServer | undefined;
+
   constructor(
-    @inject(TYPES.AuthService) private authService: IAuthService
+    @inject(TYPES.UserRepository) private userRepository: IUserRepository
   ) {}
 
-  initialize(io: Server): void {
-    io.use(async (socket: Socket, next) => {
-      const token = socket.handshake.auth.token;
-      if (!token) return next(new Error(MESSAGES.AUTH_ERROR));
+  initializeSocket(io: SocketIOServer): void {
+    this.io = io;
 
-      try {
-        const user = await this.authService.verifyToken(token);
-        socket.data.user = user;
-        next();
-      } catch (error) {
-        next(new Error(MESSAGES.INVALID_TOKEN));
-      }
-    });
+    this.io.on('connection', (socket: Socket) => {
+      console.log('New Socket.IO connection:', socket.id);
 
-    io.on('connection', (socket: Socket) => {
-      logger.info(`User ${socket.data.user._id} connected`);
-
-      socket.on('joinAccount', (accountId: string) => {
-        socket.join(`account:${accountId}`);
+      socket.on('register', (userId: string) => {
+        socket.join(userId);
+        logger.info(`User ${userId} registered with socket ${socket.id}`);
       });
 
       socket.on('disconnect', () => {
-        logger.info(`User ${socket.data.user._id} disconnected`);
+        logger.info('Socket.IO disconnected:', socket.id);
       });
     });
   }
+
+  async emitNotification(userId: string | null, notification: any, toAdmins: boolean = false): Promise<void> {
+    if (!this.io) {
+      logger.error('Socket.IO server not initialized');
+      return;
+    }
+
+    if (toAdmins) {
+      try {
+        const admins = await this.userRepository.findAll({role:'Admin'});
+        if(!admins){
+          logger.error(`Failed to fetch admins`);
+          return;
+        }
+        const adminIds = admins?.map((admin) => admin._id);
+        for (const adminId of adminIds) {
+          this.io!.to(adminId as string).emit('new_notification', {
+            ...notification,
+          });
+          logger.info(`Admin notification sent to ${adminId}`);
+        }
+        if(userId){
+          this.io.to(userId).emit('new_notification', notification);
+          logger.info(`Notification sent to user ${userId}`);
+        }
+      } catch (error) {
+        logger.error(`Failed to fetch admins: ${(error as Error).message}`);
+      }
+    } else if (userId) {
+      this.io.to(userId).emit('new_notification', notification);
+      logger.info(`Notification sent to user ${userId}`);
+    } else {
+      logger.error('No userId provided for non-admin notification');
+    }
+  }
+
 }

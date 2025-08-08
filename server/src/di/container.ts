@@ -15,7 +15,7 @@ import { AuthController } from "../controller/auth.controller";
 import { IAuthMiddleware } from "../core/interface/middleware/Iauth.middleware";
 import AuthMiddleware from "../middleware/auth.middleware";
 import { SocketHandler } from "../controller/socket.controller";
-import { ISocketHandler } from "../core/interface/controller/Isocket.controller";
+import ISocketHandler from "../core/interface/controller/Isocket.controller";
 import { IAccountRepository } from "../core/interface/repository/iaccount.repository";
 import { AccountRepository } from "../repository/account.repository";
 import { AccountService } from "../service/account.service";

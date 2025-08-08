@@ -10,6 +10,8 @@ import { Types } from 'mongoose';
 import { HttpError } from '../utils/http.error';
 import { STATUS_CODES } from '../utils/http.statuscodes';
 import { MESSAGES } from '../utils/Response.messages';
+import ISocketHandler from '../core/interface/controller/Isocket.controller';
+import logger from '../utils/logger';
 
 @injectable()
 export class ActivityService implements IActivityService {
@@ -17,15 +19,14 @@ export class ActivityService implements IActivityService {
   private REDIS_BULK_ACTIVITIES = 'bulk_activities'
   constructor(
     @inject(TYPES.ActivityRepository) private _activityRepo: IActivityRepository,
-    @inject(TYPES.AccountRepository) private _accountRepo: IAccountRepository
+    @inject(TYPES.AccountRepository) private _accountRepo: IAccountRepository,
+    @inject(TYPES.SocketController) private _socketHandle: ISocketHandler
   ) {}
 
   async logActivity(accountId: string, data: Partial<IActivity>, userId: string, role: string): Promise<ActivityDto> {
-    if (role === 'Agent') {
-      const account = await this._accountRepo.findOne({ _id: accountId, userId });
-      if (!account) {
-        throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.UN_AUTHORIZED_ACTIVITY);
-      }
+    const account = await this._accountRepo.findOne({ _id: accountId, userId });
+    if (role === 'Agent' && !account) {
+      throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.UN_AUTHORIZED_ACTIVITY);
     }
     const activity = await this._activityRepo.create({ 
       ...data, 
@@ -33,6 +34,15 @@ export class ActivityService implements IActivityService {
     } as Partial<IActivity>);
 
     await redisClient.del(`${this.REDIS_ACTIVITIES}:${accountId}`);
+
+    const notification = {
+      accountName: account?.name,
+      message: `New activity logged: ${data.description || 'Activity recorded'}`,
+      timestamp: new Date(),
+    };
+    this._socketHandle.emitNotification(userId, notification, true);
+    logger.info(`Notification sent to user ${userId} for activity ${activity._id}`)
+
     return mapActivityToDto(activity);
   }
 
