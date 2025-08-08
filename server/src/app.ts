@@ -13,6 +13,7 @@ import { rateLimiter } from './middleware/ratelimit.middleware';
 import {errorHandler} from './middleware/error.middleware';
 import { setupMetrics } from './utils/metrics';
 import { requestLogger } from './middleware/logger.middleware';
+import cookieParser from 'cookie-parser';
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(rateLimiter);
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 app.use(requestLogger);
 setupMetrics(app);

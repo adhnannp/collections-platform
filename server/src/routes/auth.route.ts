@@ -10,5 +10,7 @@ const authController = container.get<IAuthController>(TYPES.AuthController);
 
 router.post('/register',authRateLimiter , asyncHandler(authController.register.bind(authController)));
 router.post('/login', authRateLimiter, asyncHandler(authController.login.bind(authController)));
+router.post('/refresh-token',asyncHandler(authController.refreshToken.bind(authController)));
+router.post('/logout',asyncHandler(authController.logout.bind(authController)));
 
 export default router;

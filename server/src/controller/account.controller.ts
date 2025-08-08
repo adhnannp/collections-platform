@@ -1,76 +1,136 @@
 import { Request, Response } from 'express';
-import { AccountService } from '../service/account.service';
+import { inject, injectable } from 'inversify';
+import { TYPES } from '../di/types';
+import { accountCreateSchema, accountQuerySchema, accountUpdateSchema, advancedSearchSchema } from '../validation/account.schema';
+import { treeifyError } from 'zod';
+import { MESSAGES } from '../utils/Response.messages';
+import { STATUS_CODES } from '../utils/http.statuscodes';
+import { IAccountService } from '../core/interface/service/Iaccount.service';
+import { IAccountController } from '../core/interface/controller/Iaccount.controller';
 
-export class AccountController {
-  static async listAccounts(req: Request, res: Response) {
-    try {
-      const { page = 1, limit = 10, sort = 'createdAt', ...filters } = req.query;
-      const accounts = await AccountService.listAccounts({
-        page: Number(page),
-        limit: Number(limit),
-        sort: String(sort),
-        filters,
-      });
-      res.json(accounts);
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
+@injectable()
+export class AccountController implements IAccountController {
+  constructor(
+    @inject(TYPES.AccountService) private _accountServ: IAccountService
+  ) {}
+
+  async listAccounts(req: Request, res: Response): Promise<void> {
+    const parsedQuery = accountQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: treeifyError(parsedQuery.error) });
+      return;
     }
+    const { page, limit, sort } = parsedQuery.data;
+    const role = req.user?.role;
+    const userId = req.user?._id;
+    if (!role || !userId) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
+    }
+    const accounts = await this._accountServ.listAccounts({
+      page,
+      limit,
+      sort,
+      filters: req.query,
+      role,
+      userId,
+    });
+    res.status(STATUS_CODES.OK).json(accounts);
   }
 
-  static async createAccount(req: Request, res: Response) {
-    try {
-      const account = await AccountService.createAccount(req.body, req.user);
-      res.status(201).json(account);
-    } catch (error) {
-      res.status(400).json({ error: (error as Error).message });
+  async createAccount(req: Request, res: Response): Promise<void> {
+    const parsed = accountCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: treeifyError(parsed.error) });
+      return;
     }
+    if (!req.user || !req.user.role) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
+    }
+    const account = await this._accountServ.createAccount(parsed.data, req.user?.role);
+    res.status(STATUS_CODES.CREATED).json(account);
   }
 
-  static async getAccount(req: Request, res: Response) {
-    try {
-      const account = await AccountService.getAccount(req.params.id);
-      res.json(account);
-    } catch (error) {
-      res.status(404).json({ error: (error as Error).message });
+  async getAccount(req: Request, res: Response): Promise<void> {
+    const role = req.user?.role;
+    if (!role) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
     }
+    const account = await this._accountServ.getAccount(req.params.id, role);
+    if (!account) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.ACCOUNT_NOT_FOUND });
+      return;
+    }
+    res.status(STATUS_CODES.OK).json(account);
   }
 
-  static async updateAccount(req: Request, res: Response) {
-    try {
-      const account = await AccountService.getAccount(req.params.id);
-      res.json(account);
-    } catch (error) {
-      res.status(404).json({ error: (error as Error).message });
+  async updateAccount(req: Request, res: Response): Promise<void> {
+    const parsed = accountUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: treeifyError(parsed.error) });
+      return;
     }
+    const role = req.user?.role;
+    const userId = req.user?._id;
+    if (!role || !userId) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
+    }
+    const updated = await this._accountServ.updateAccount(req.params.id, parsed.data, role, userId);
+    if (!updated) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.ACCOUNT_NOT_FOUND_NOT_UPDATED });
+      return;
+    }
+    res.status(STATUS_CODES.OK).json(updated);
   }
 
-  static async deleteAccount(req: Request, res: Response) {
-    try {
-      const account = await AccountService.getAccount(req.params.id);
-      res.json(account);
-    } catch (error) {
-      res.status(404).json({ error: (error as Error).message });
+  async deleteAccount(req: Request, res: Response): Promise<void> {
+    const role = req.user?.role;
+    const userId = req.user?._id;
+    if (!role || !userId) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
     }
+    const deleted = await this._accountServ.deleteAccount(req.params.id, role, userId);
+    if (!deleted) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.ACCOUNT_NOT_FOUND });
+      return;
+    }
+    res.status(STATUS_CODES.OK).json({ message: MESSAGES.ACCOUNT_DELEATED });
   }
 
-  static async bulkUpdate(req: Request, res: Response) {
-    try {
-      const updates = req.body.updates; // Array of { id, data }
-      const result = await AccountService.bulkUpdate(updates);
-      res.json(result);
-    } catch (error) {
-      res.status(400).json({ error: (error as Error).message });
+  async bulkUpdate(req: Request, res: Response): Promise<void> {
+    const updates = req.body.updates;
+    const role = req.user?.role;
+    const userId = req.user?._id;
+    if (!role || !userId) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
     }
+    const result = await this._accountServ.bulkUpdate(updates, role, userId);
+    res.status(STATUS_CODES.OK).json(result);
   }
 
-  static async advancedSearch(req: Request, res: Response) {
-    try {
-      const { query, dateRange, geo, customFields, page = 1, limit = 10 } = req.body;
-      const accounts = await AccountService.advancedSearch({ query, dateRange, geo, customFields, page, limit });
-      res.json(accounts);
-    } catch (error) {
-      res.status(400).json({ error: (error as Error).message });
+  async advancedSearch(req: Request, res: Response): Promise<void> {
+    const role = req.user?.role;
+    const userId = req.user?._id;
+    const result = advancedSearchSchema.safeParse(req.body);
+    if (!role || !userId) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: MESSAGES.AUTH_ERROR });
+      return;
     }
+    if (!result.success) {
+      res.status(STATUS_CODES.BAD_REQUEST).json({ message: treeifyError(result.error) });
+      return;
+    }
+    const validated = result.data;
+    const accounts = await this._accountServ.advancedSearch({
+      ...validated,
+      role,
+      userId,
+    });
+    res.status(STATUS_CODES.OK).json(accounts);
   }
-
 }

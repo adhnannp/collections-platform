@@ -27,7 +27,7 @@ export default class AuthMiddleware implements IAuthMiddleware {
     const authHeader = req.headers.authorization;
     const token = authHeader?.split(' ')[1];
     if (!token) {
-      res.status(STATUS_CODES.UNAUTHORIZED).json({ error: 'No token provided' });
+      res.status(STATUS_CODES.UNAUTHORIZED).json({ message: MESSAGES.NO_TOKEN_PROVIDED });
       return;
     }
     try {
@@ -35,7 +35,7 @@ export default class AuthMiddleware implements IAuthMiddleware {
       req.user = user;
       next();
     } catch (error) {
-      res.status(STATUS_CODES.UNAUTHORIZED).json({ error: MESSAGES.INVALID_TOKEN });
+      res.status(STATUS_CODES.UNAUTHORIZED).json({ message: MESSAGES.INVALID_TOKEN });
     }
   }
 }
@@ -43,7 +43,7 @@ export default class AuthMiddleware implements IAuthMiddleware {
 export const roleMiddleware = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(STATUS_CODES.FORBIDDEN).json({ message: MESSAGES.ACCESS_DENIED });
     }
     next();
   };

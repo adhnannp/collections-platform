@@ -1,120 +1,153 @@
-import { Account, IAccount } from '../models/account.model';
+import { injectable, inject } from 'inversify';
 import redisClient from '../config/redis';
-import { AnyBulkWriteOperation } from 'mongoose';
+import { AnyBulkWriteOperation, FilterQuery, Types } from 'mongoose';
+import { IAccountService } from '../core/interface/service/Iaccount.service';
+import { IAccountRepository } from '../core/interface/repository/iaccount.repository';
+import { IAccount } from '../models/account.model';
+import { TYPES } from '../di/types';
+import { AdvancedSearchDto, ListReqDto } from '../core/dto/req/account.list.req';
+import { UserRole } from '../models/user.model';
+import { HttpError } from '../utils/http.error';
+import { STATUS_CODES } from '../utils/http.statuscodes';
+import { MESSAGES } from '../utils/Response.messages';
+import { toAccountResDto } from '../core/dto/account.dto';
+import { AccountResDto } from '../core/dto/account.dto';
 
-export class AccountService {
-  static async listAccounts({ page, limit, sort, filters }: any) {
-    const cacheKey = `accounts:${page}:${limit}:${sort}:${JSON.stringify(filters)}`;
+
+@injectable()
+export class AccountService implements IAccountService {
+
+  private REDIS_ACCOUNT = 'account';
+  private REDIS_ACCOUNTS = 'accounts';
+  private REDIS_SEARCH = 'search';
+  private REDIS_ACTIVITIES = 'activities';
+  private REDIS_PAYMENTS = 'payments'
+
+  constructor(
+    @inject(TYPES.AccountRepository) private _accountRepo: IAccountRepository
+  ) {}
+
+  async listAccounts({ page, limit, sort, filters, role, userId }: ListReqDto) :Promise<AccountResDto[]>  {
+    const cacheKey = `${this.REDIS_ACCOUNTS}:${page}:${limit}:${JSON.stringify(sort)}:${JSON.stringify(filters)}:${role}:${userId}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) return JSON.parse(cached);
-
-    const query = { deletedAt: null, ...filters };
-    const accounts = await Account.find(query)
-      .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean();
-
+    const accounts = await this._accountRepo.listAccounts({
+      page,
+      limit,
+      sort,
+      filters,
+      role,
+      userId,
+    });
+    const result = accounts.map(toAccountResDto);
     await redisClient.setEx(cacheKey, 300, JSON.stringify(accounts));
-    return accounts;
+    return result;
   }
 
-  static async createAccount(data: Partial<IAccount>, user: any): Promise<IAccount> {
-    const account = new Account({ ...data, userId: user._id });
-    await account.save();
-    return account;
+  async createAccount(data:Partial<IAccount>,userId:string ):Promise<AccountResDto> {
+    const id = new Types.ObjectId(userId)
+    const account = await this._accountRepo.create({ ...data, userId:id });
+    return toAccountResDto(account);
   }
 
-  static async getAccount(id: string): Promise<IAccount> {
-    const cacheKey = `account:${id}`;
+  async getAccount(id:string,role:UserRole): Promise<AccountResDto> {
+    const cacheKey = `${this.REDIS_ACCOUNT}:${id}:${role}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) return JSON.parse(cached);
-
-    const account = await Account.findOne({ _id: id, deletedAt: null }).lean();
-    if (!account) throw new Error('Account not found');
-
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(account));
-    return account;
+    const account = await this._accountRepo.getAccount(id, role);
+    if (!account) throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.ACCOUNT_NOT_FOUND);
+    const result = toAccountResDto(account);
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(result));
+    return result;
   }
 
-  static async bulkUpdate(updates: { id: string; data: Partial<IAccount> }[]): Promise<{ updated: number; errors: any[] }> {
-    const operations: AnyBulkWriteOperation<IAccount>[] = updates.map(({ id, data }) => ({
-      updateOne: {
-        filter: { _id: id, deletedAt: null },
-        update: { $set: data },
-      },
-    }));
+  async updateAccount(id:string ,data:Partial<IAccount> ,role:UserRole, userId:string): Promise<AccountResDto> {
+    const checkAccount = await this._accountRepo.findOne({_id:id,userId})
+    if(role === 'Agent' && !checkAccount ){
+      throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.ACCESS_DENIED)
+    }
+    const account = await this._accountRepo.updateAccount(id, data);
+    if (!account) throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.ACCOUNT_NOT_FOUND);
+    await this.invalidateCaches(id);
+    return toAccountResDto(account);
+  }
 
-    try {
-      const result = await Account.bulkWrite(operations, { ordered: false });
-      
-      const accountIds = updates.map(update => update.id);
-      for (const id of accountIds) {
-        await redisClient.del(`account:${id}`);
-        await redisClient.del(`payments:${id}`);
-        await redisClient.del(`activities:${id}`);
+  async deleteAccount(id:string, role:UserRole, userId:string): Promise<AccountResDto> {
+    const account = await this._accountRepo.deleteAccount(id);
+    if (!account) throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.ACCOUNT_NOT_FOUND);
+    await this.invalidateCaches(id);
+    return  toAccountResDto(account);
+  }
+
+  async bulkUpdate(updates: { id: string; data: Partial<IAccount> }[], role:UserRole, userId:String): Promise<{ updated: number; errors: any[] }> {
+    const operations: AnyBulkWriteOperation<IAccount>[] = updates.map(({ id, data }) => {
+      let filter: FilterQuery<IAccount> = { _id: id, deletedAt: null };
+      if (role === 'Viewer') {
+        filter = { ...filter, isListed: true };
+      } else if (role === 'Agent') {
+        filter = { ...filter, userId };
       }
-      await redisClient.del(`accounts:*`);
+      return {
+        updateOne: {
+          filter,
+          update: { $set: data },
+        },
+      };
+    });
 
-      return {
-        updated: result.modifiedCount,
-        errors: [],
-      };
-    } catch (error:any) {
-      return {
-        updated: 0,
-        errors: error.writeResult?.result?.writeErrors || [error],
-      };
+    const result = await this._accountRepo.bulkUpdate(operations);
+    if(!result){
+      throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.BULK_UPDATE_FAILED)
     }
+
+    for (const { id } of updates) {
+      await this.invalidateCaches(id);
+    }
+
+
+    return {
+      updated: result.modifiedCount,
+      errors: result.getWriteErrors ? result?.getWriteErrors():[],
+    };
   }
 
-  static async advancedSearch({ query, dateRange, geo, customFields, page = 1, limit = 10 }: any) {
-    const pipeline: any[] = [
-      { $match: { deletedAt: null } },
-    ];
-    if (query) {
-      pipeline.push({ $match: { $text: { $search: query } } });
-    }
-    if (dateRange?.start && dateRange?.end) {
-      pipeline.push({
-        $match: {
-          createdAt: {
-            $gte: new Date(dateRange.start),
-            $lte: new Date(dateRange.end),
-          },
-        },
-      });
-    }
-
-    if (geo?.lat && geo?.lng && geo?.radius) {
-      pipeline.push({
-        $match: {
-          location: {
-            $geoWithin: {
-              $centerSphere: [[geo.lng, geo.lat], geo.radius / 6378.1],
-            },
-          },
-        },
-      });
-    }
-
-    if (customFields) {
-      pipeline.push({ $match: customFields });
-    }
-
-    pipeline.push(
-      { $sort: { createdAt: -1 } },
-      { $skip: (page - 1) * limit },
-      { $limit: limit }
-    );
-
-    const cacheKey = `search:${JSON.stringify({ query, dateRange, geo, customFields, page, limit })}`;
+  async advancedSearch({
+    query,
+    dateRange,
+    customFields,
+    page = 1,
+    limit = 10,
+    role,
+    userId,
+  }: AdvancedSearchDto):Promise<AccountResDto[]> {
+    const cacheKey = `${this.REDIS_SEARCH}:${JSON.stringify({ query, dateRange, customFields, page, limit, role, userId })}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
-    const accounts = await Account.aggregate(pipeline);
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(accounts));
-    return accounts;
+    const accounts = await this._accountRepo.advancedSearch({
+      query,
+      dateRange,
+      customFields,
+      page,
+      limit,
+      role,
+      userId,
+    });
+
+    const result = accounts.map(toAccountResDto);
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(result));
+    return result;
+  }
+
+  private async invalidateCaches(accountId: string): Promise<void> {
+    const keysToDelete: string[] = [
+      `${this.REDIS_ACCOUNT}:${accountId}:*`,
+      `${this.REDIS_PAYMENTS}:${accountId}`,
+      `${this.REDIS_ACTIVITIES}:${accountId}`,
+      `${this.REDIS_ACCOUNTS}:*`,
+      `${this.REDIS_SEARCH}:*`,
+    ];
+    await redisClient.del(keysToDelete);
   }
 
 }
