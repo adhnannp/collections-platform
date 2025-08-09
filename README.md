@@ -1,4 +1,4 @@
-# 🚀 Collections Platform API
+# Collections Platform API
 
 <div align="center">
 
@@ -7,7 +7,6 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-6+-green.svg)](https://www.mongodb.com/)
 [![Redis](https://img.shields.io/badge/Redis-7+-red.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **A high-performance, scalable Node.js API server designed to handle 100,000+ concurrent users**
 
@@ -17,35 +16,35 @@
 
 ---
 
-## ✨ Features
+## Features
 
-### 🔐 **Security First**
+### **Security First**
 - **JWT Authentication** with role-based access control (Admin, Manager, Agent, Viewer)
 - **bcrypt** password hashing with account lockout protection
 - **Rate limiting** (1000 req/min per user) with Redis-backed storage
 - **Input validation** using express-validator and DTOs
 - **Helmet** for secure HTTP headers
 
-### 🏗️ **Enterprise Architecture**
+### **Enterprise Architecture**
 - **Repository-Service Pattern** with InversifyJS dependency injection
 - **TypeScript** with strict type safety and DTOs for data mapping
 - **MongoDB** with replica sets for high availability
 - **Redis** for session management and caching
 - **Socket.IO** for real-time WebSocket connections
 
-### ⚡ **High Performance**
+### **High Performance**
 - **Bulk Operations**: Update 10,000+ accounts efficiently using MongoDB bulkWrite
 - **Advanced Caching**: Redis with 80%+ cache hit rates and smart invalidation
 - **Database Optimization**: Indexed queries with <50ms average execution time
 - **Horizontal Scaling**: Ready for Kubernetes with session sharing
 
-### 📊 **Collections Management**
+### **Collections Management**
 - **Accounts**: Full CRUD with pagination, filtering, and sorting
 - **Payments**: Track payment history with real-time status updates
 - **Activities**: Comprehensive audit logging with bulk retrieval
 - **Advanced Search**: Multi-field queries with geographic filtering
 
-### 🔍 **Monitoring & Observability**
+### **Monitoring & Observability**
 - **Winston** structured logging with multiple transports
 - **Prometheus** metrics for performance monitoring
 - **Health checks** with detailed system status
@@ -53,7 +52,7 @@
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js v18+
@@ -61,7 +60,7 @@
 - Redis v7+
 - Docker (optional)
 
-### 🐳 Docker Setup (Recommended)
+### Docker Setup (Recommended)
 ```bash
 # Clone the repository
 git clone https://github.com/adhnannp/collections-platform.git
@@ -74,7 +73,7 @@ docker-compose up --build
 open http://localhost:3000
 ```
 
-### 💻 Local Development
+### Local Development
 ```bash
 # Install dependencies
 npm install
@@ -91,16 +90,16 @@ npm run dev
 
 ---
 
-## 📚 API Documentation
+## API Documentation
 
-### 🌐 **Interactive Documentation**
+### **Interactive Documentation**
 Once the application is running, explore the full API documentation:
 
-- **📖 Swagger UI**: [http://localhost:3000/api-docs/](http://localhost:3000/api-docs/)
-- **📊 Prometheus Metrics**: [http://localhost:3000/metrics](http://localhost:3000/metrics)
-- **🏥 Health Status**: [http://localhost:3000/health](http://localhost:3000/health)
+- ** Swagger UI**: [http://localhost:3000/api-docs/](http://localhost:3000/api-docs/)
+- ** Prometheus Metrics**: [http://localhost:3000/metrics](http://localhost:3000/metrics)
+- ** Health Status**: [http://localhost:3000/health](http://localhost:3000/health)
 
-### 🛠️ **Core Endpoints**
+### **Core Endpoints**
 
 | Category | Method | Endpoint | Description |
 |----------|--------|----------|-------------|
@@ -114,9 +113,9 @@ Once the application is running, explore the full API documentation:
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-### 📁 **Project Structure**
+### **Project Structure**
 ```
 collections-platform/
 ├── 📂 src/
@@ -135,7 +134,7 @@ collections-platform/
 └── 📦 package.json           # Dependencies
 ```
 
-### 🔄 **Data Flow**
+### **Data Flow**
 ```
 HTTP Request → Middleware → Controller → Service → Repository → Database
      ↓              ↓            ↓         ↓          ↓          ↓
@@ -144,7 +143,7 @@ HTTP Request → Middleware → Controller → Service → Repository → Databa
 
 ---
 
-## 🚀 Performance Benchmarks
+## Performance Benchmarks
 
 <div align="center">
 
@@ -159,7 +158,7 @@ HTTP Request → Middleware → Controller → Service → Repository → Databa
 
 </div>
 
-### ⚡ **Optimizations**
+### **Optimizations**
 - **Connection Pooling**: MongoDB with 100 max connections
 - **Caching Strategy**: Redis with 5-minute TTL and smart invalidation
 - **Database Indexing**: Optimized queries on high-frequency fields
@@ -167,9 +166,9 @@ HTTP Request → Middleware → Controller → Service → Repository → Databa
 
 ---
 
-## 🧪 Testing
+## Testing
 
-### 🔬 **Test Coverage**
+### **Test Coverage**
 ```bash
 # Unit tests with coverage
 npm run test
@@ -178,15 +177,15 @@ npm run test
 npx artillery run load.test.yml
 ```
 
-### 📊 **Test Types**
+### **Test Types**
 - **Unit Tests**: Services, repositories, utilities
 - **Integration Tests**: Full API endpoint testing
 - **Load Tests**: Artillery simulation with 10,000+ users
 ---
 
-## 🚀 Deployment
+## Deployment
 
-### 🌟 **Production Ready**
+### **Production Ready**
 ```bash
 # Build for production
 npm run build
@@ -196,18 +195,18 @@ npm start
 
 ```
 
-### 🔄 **CI/CD Pipeline**
+### **CI/CD Pipeline**
 GitHub Actions automatically:
-- ✅ Runs comprehensive test suite
-- 🏗️ Builds and pushes Docker images  
-- 📊 Performs performance profiling
-- 🚀 Deploys to staging/production
+- Runs comprehensive test suite
+- Builds and pushes Docker images  
+- Performs performance profiling
+- Deploys to staging/production
 
 ---
 
-## 📊 Monitoring & Observability
+##  Monitoring & Observability
 
-### 📈 **Metrics Dashboard**
+###  **Metrics Dashboard**
 - **Prometheus Integration**: Custom metrics for API performance
 - **Winston Logging**: Structured logs with multiple levels
 - **Health Endpoints**: Detailed system status reporting
