@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Create server/.env file dynamically (optional, if your build depends on it)
+      - name: Create server/.env file
+        run: |
+          mkdir -p server
+          echo "PORT=${{ secrets.PORT }}" >> server/.env
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> server/.env
+          echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> server/.env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> server/.env
+          echo "NODE_ENV=${{ secrets.NODE_ENV }}" >> server/.env
+          echo "CLIENT_URI=${{ secrets.CLIENT_URI }}" >> server/.env
+
+      # Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Build Docker image
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/collections-platform:latest .
+
+      # Push Docker image to Docker Hub
+      - name: Push Docker image
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/collections-platform:latest
+
+      # Optional deploy step (commented out)
+      # - name: Deploy to server
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.SERVER_IP }}
+      #     username: ${{ secrets.SERVER_USER }}
+      #     key: ${{ secrets.SERVER_SSH_KEY }}
+      #     script: |
+      #       docker pull ${{ secrets.DOCKER_USERNAME }}/collections-platform:latest
+      #       docker compose -f /path/to/docker-compose.yml up -d --force-recreate
