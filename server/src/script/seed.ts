@@ -5,6 +5,7 @@ import { Payment } from '../models/payment.model';
 import { Activity } from '../models/activity.model';
 import { connectDB } from '../config/database';
 import { faker } from '@faker-js/faker';
+import bcrypt from 'bcrypt';
 
 async function insertInBatches(model: any, data: any[], batchSize = 10000) {
   for (let i = 0; i < data.length; i += batchSize) {
@@ -26,11 +27,12 @@ async function seed() {
 
     while (users.length < 100_000) {
       const email = faker.internet.email();
+      const hashedPassword = await bcrypt.hash('password123', 10);
       if (!emailSet.has(email)) {
         emailSet.add(email);
         users.push({
           email,
-          password: 'password123',
+          password: hashedPassword,
           role: faker.helpers.arrayElement(['Admin', 'Manager', 'Agent']),
         });
       }

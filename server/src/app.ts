@@ -5,7 +5,6 @@ import helmet from 'helmet';
 import { connectDB } from './config/database';
 import { connectRedis } from './config/redis';
 import authRoutes from './routes/auth.route';
-import adminRoutes from './routes/admin.route';
 import accountRoutes from './routes/account.route';
 import paymentRoutes from './routes/payment.route';
 import { setupSwagger } from './utils/swagger';
@@ -26,7 +25,6 @@ app.use(cookieParser());
 app.use(requestLogger);
 setupMetrics(app);
 
-// app.use('/admin/',adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/payments', paymentRoutes);

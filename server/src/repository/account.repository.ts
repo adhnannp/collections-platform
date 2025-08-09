@@ -58,15 +58,15 @@ export class AccountRepository extends BaseRepository<IAccount> implements IAcco
   }: AdvancedSearchDto) {
     const pipeline: any[] = [];
 
+    if (query) {
+      pipeline.push({ $match: { $text: { $search: query } } });
+    }
     if (role === 'Admin' || role === 'Manager') {
       pipeline.push({ $match: {} }); 
     } else if (role === 'Agent') {
       pipeline.push({ $match: { userId } }); 
     } else {
       pipeline.push({ $match: { isListed: true } });
-    }
-    if (query) {
-      pipeline.push({ $match: { $text: { $search: query } } });
     }
     if (dateRange?.start && dateRange?.end) {
       pipeline.push({

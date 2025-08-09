@@ -8,7 +8,6 @@
     "dev": "nodemon src/server.ts",
     "test": "jest",
     "seed": "npx ts-node src/script/seed.ts",
-    "load-test": "ts-node src/script/loadTest.js",
     "profile": "clinic doctor -- ts-node src/server.js"
   },
   "keywords": [],
@@ -22,6 +21,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.2.0",
     "@types/supertest": "^6.0.3",
+    "@types/swagger-jsdoc": "^6.0.4",
     "artillery": "^2.0.23",
     "clinic": "^13.0.0",
     "heapdump": "^0.3.15",
@@ -56,6 +56,7 @@
     "redis": "^5.8.0",
     "reflect-metadata": "^0.2.2",
     "socket.io": "^4.8.1",
+    "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.17.0",
     "zod": "^4.0.15"

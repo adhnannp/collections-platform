@@ -1,33 +1,29 @@
 import swaggerUi from 'swagger-ui-express';
 import { Express } from 'express';
+import swaggerJSDoc from 'swagger-jsdoc';
 
-const swaggerDocument = {
-  openapi: '3.0.0',
-  info: { title: 'Collections Platform API', version: '1.0.0' },
-  paths: {
-    '/api/auth/register': {
-      post: {
-        summary: 'Register a new user',
-        requestBody: {
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  email: { type: 'string' },
-                  password: { type: 'string' },
-                  role: { type: 'string', enum: ['Admin', 'Manager', 'Agent', 'Viewer'] },
-                },
-              },
-            },
-          },
+export const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Collections Platform API',
+      version: '1.0.0',
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
         },
-        responses: { '201': { description: 'User created' } },
       },
     },
+    security: [{ bearerAuth: [] }],
   },
+  apis: ['./src/routes/*.ts', './src/controllers/*.ts'],
 };
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
 
 export const setupSwagger = (app: Express) => {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 };
