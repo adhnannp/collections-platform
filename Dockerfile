@@ -1,22 +1,21 @@
-# Use Node.js 22 image
 FROM node:22.17.1
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies first (better caching)
-COPY package*.json ./
-RUN npm install --only=production
+# Copy package files
+COPY server/package*.json ./
 
-# Copy the source code
-COPY server ./server
-COPY tsconfig.json ./
+# Install all dependencies for build
+RUN npm install
 
-# Build TypeScript to JavaScript
+# Copy source code
+COPY server ./
+
+# Build TypeScript
 RUN npm run build
 
-# Expose app port
-EXPOSE 3000
+# Remove dev dependencies to shrink image
+RUN npm prune --production
 
-# Start the server
+EXPOSE 3000
 CMD ["npm", "start"]

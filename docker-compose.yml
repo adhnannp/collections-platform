@@ -17,6 +17,8 @@ services:
       MONGODB_URI: ${MONGODB_URI}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
+      CLIENT_URI: ${CLIENT_URI}
+      PORT: ${PORT:-3000}
 
   mongodb:
     image: mongo:latest
