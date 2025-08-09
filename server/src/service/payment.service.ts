@@ -3,17 +3,20 @@ import { IPayment, paymentStatus } from '../models/payment.model';
 import { IPaymentRepository } from '../core/interface/repository/Ipayment.repository';
 import { IPaymentService } from '../core/interface/service/Ipayment.service';
 import { TYPES } from '../di/types';
-import redisClient from '../config/redis';
 import { HttpError } from '../utils/http.error';
 import { STATUS_CODES } from '../utils/http.statuscodes';
 import { MESSAGES } from '../utils/Response.messages';
 import { toPaymentDto, PaymentDto } from '../core/dto/payment.dto';
 import { IAccountRepository } from '../core/interface/repository/iaccount.repository';
 import ISocketHandler from '../core/interface/controller/Isocket.controller';
+import { PAYMENT_CONST } from '../utils/const.shema';
+import { redisGet, redisSet, redisDel } from '../helper/redis.helper';
+import { IO } from '../helper/notification.helper';
 
 @injectable()
 export class PaymentService implements IPaymentService {
   private REDIS_CONST = 'payments';
+
   constructor(
     @inject(TYPES.PaymentRepository) private _paymentRepo: IPaymentRepository,
     @inject(TYPES.AccountRepository) private _accountRepo: IAccountRepository,
@@ -22,38 +25,38 @@ export class PaymentService implements IPaymentService {
 
   async recordPayment(accountId: string, data: Partial<IPayment>): Promise<PaymentDto> {
     const account = await this._accountRepo.findById(accountId);
-    if(!account){
-      throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.ACCOUNT_NOT_FOUND)
+    if (!account) {
+      throw new HttpError(STATUS_CODES.BAD_REQUEST, MESSAGES.ACCOUNT_NOT_FOUND);
     }
     const payment = await this._paymentRepo.recordPayment(accountId, data);
-    if(!payment){
-      throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.PAYMENTS_RECORD_FAILED)
+    if (!payment) {
+      throw new HttpError(STATUS_CODES.BAD_REQUEST, MESSAGES.PAYMENTS_RECORD_FAILED);
     }
-    if (payment.status === 'completed') {
-      const balance = account.balance+payment.amount;
+    if (payment.status === PAYMENT_CONST.COMPLEATED) {
+      const balance = account.balance + payment.amount;
       await this._accountRepo.updateById(accountId,{balance});
     }
-    await redisClient.del(`${this.REDIS_CONST}:${accountId}`);
+    await redisDel(`${this.REDIS_CONST}:${accountId}`);
     const notification = {
       accountName: account.name,
-      message: `New payment recorded: ₹${payment.amount}`,
+      message: IO.MESSAGES.PAYMENT_RECORDED(payment.amount, account.name),
       timestamp: new Date(),
     };
 
-    this._socketHandle.emitNotification(account.userId.toString(), notification, true);
+    await this._socketHandle.emitNotification(account.userId.toString(), notification, true);
     return toPaymentDto(payment);
   }
 
   async getPayments(accountId: string, page: number = 1, limit: number = 10): Promise<PaymentDto[]> {
     const cacheKey = `${this.REDIS_CONST}:${accountId}:${page}:${limit}`;
-    const cached = await redisClient.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const cached = await redisGet<PaymentDto[]>(cacheKey);
+    if (cached) return cached;
     const payments = await this._paymentRepo.getPayments(accountId, page, limit);
-    if(!payments){
-      throw new HttpError(STATUS_CODES.BAD_REQUEST,MESSAGES.PAYMENTS_NOT_FOUND)
+    if (!payments) {
+      throw new HttpError(STATUS_CODES.BAD_REQUEST, MESSAGES.PAYMENTS_NOT_FOUND);
     }
     const paymentDtos = payments.map(toPaymentDto);
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(paymentDtos));
+    await redisSet(cacheKey, paymentDtos, 300);
     return paymentDtos;
   }
 
@@ -65,10 +68,7 @@ export class PaymentService implements IPaymentService {
 
     const currentStatus = existing.status;
 
-    if (
-      (currentStatus === 'completed') ||
-      (currentStatus === 'failed')
-    ) {
+    if (currentStatus === PAYMENT_CONST.COMPLEATED || currentStatus === PAYMENT_CONST.FAILED) {
       throw new HttpError(
         STATUS_CODES.BAD_REQUEST,
         `Cannot update payment status from ${currentStatus} to ${newStatus}`
@@ -76,27 +76,24 @@ export class PaymentService implements IPaymentService {
     }
 
     const updated = await this._paymentRepo.updatePaymentStatus(paymentId, newStatus);
-    const account = await this._accountRepo.findById(updated.accountId.toString());
     if (!updated) {
       throw new HttpError(STATUS_CODES.BAD_REQUEST, MESSAGES.PAYMENTS_STATUS_UPDATE_FAILED);
     }
-    if(!account){
+    const account = await this._accountRepo.findById(updated.accountId.toString());
+    if (!account) {
       throw new HttpError(STATUS_CODES.BAD_REQUEST, MESSAGES.ACCOUNT_NOT_FOUND);
     }
-    if (newStatus === 'completed') {
-      const balance = account.balance+updated.amount
+    if (newStatus === PAYMENT_CONST.COMPLEATED) {
+      const balance = account.balance + updated.amount;
       await this._accountRepo.updateById(updated.accountId.toString(),{balance});
     }
-    if (account) {
-      const notification = {
-        accountName: account.name,
-        message: `Payment status changed: ${newStatus}`,
-        timestamp: new Date(),
-      };
-      this._socketHandle.emitNotification(account.userId.toString(), notification, true);
-    }
-    await redisClient.del(`${this.REDIS_CONST}:${updated.accountId}`);
+    const notification = {
+      accountName: account.name,
+      message: IO.MESSAGES.PAYMENT_STATUS_UPDATED(newStatus, account.name),
+      timestamp: new Date(),
+    };
+    await this._socketHandle.emitNotification(account.userId.toString(), notification, true);
+    await redisDel(`${this.REDIS_CONST}:${updated.accountId}`);
     return toPaymentDto(updated);
   }
-
 }

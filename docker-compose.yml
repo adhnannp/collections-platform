@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: collections-platform
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+      - redis
+    environment:
+      NODE_ENV: NODE_ENV
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+
   mongodb:
     image: mongo:latest
     container_name: mongodb
@@ -26,4 +43,3 @@ services:
 volumes:
   mongodb_data:
   redis_data:
-
